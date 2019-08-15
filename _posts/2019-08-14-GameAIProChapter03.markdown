@@ -5,6 +5,7 @@ subtitle:   "Advanced Randomness Techniques for Game AI"
 date:       2019-08-15 11:13:00
 author:     "zhouhd"
 header-img: "img/about-bg.jpg"
+mathjax: true
 catalog: true
 tags:
     - GameAI
