@@ -1,7 +1,7 @@
 ---
 layout:     post
-title:      "GameAIPro Chapter03 Advanced Randomness Techniques for Game AI"
-subtitle:   ""
+title:      "GameAIPro Chapter03"
+subtitle:   "Advanced Randomness Techniques for Game AI"
 date:       2019-08-15 11:13:00
 author:     "zhouhd"
 header-img: "img/about-bg.jpg"

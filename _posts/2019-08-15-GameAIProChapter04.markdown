@@ -1,7 +1,7 @@
 ---
 layout:     post
-title:      "GameAIPro Chapter04 Behavior Selection Algorithms"
-subtitle:   ""
+title:      "GameAIPro Chapter04"
+subtitle:   "Behavior Selection Algorithms"
 date:       2019-08-15 16:45:00
 author:     "zhouhd"
 header-img: "img/about-bg.jpg"
@@ -13,7 +13,7 @@ tags:
 ---
 
 ### 有限状态机 Finite State Machines
-   - 经典AI实现方式，将AI分为多个状态，一般一个时刻只会处于一个状态，状态间可以发生转变
+   - 经典AI实现方式，将AI分为多个状态，一般一个时刻只会处于一个状态，状态间可以发生转变：
   ```
   class FSMState
   {
