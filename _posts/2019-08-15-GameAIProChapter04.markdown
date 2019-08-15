@@ -36,7 +36,7 @@ tags:
       list<FSMState> states;
       FSMState* initialState;
       FSMState* activeState;
-  }
+  };
   ```
    - 对于多个类似的状态，可以将它们整合为一个大的状态，这就是Hierarchical Finite State Machine分层有限状态机，这样可以有效减少状态间转移的数量。一般大的状态还会带一个特别的指针history指向上次运行的子状态，这样再次进入时可以从上次的状态继续运行
 ### 行为树 Behavior Trees
