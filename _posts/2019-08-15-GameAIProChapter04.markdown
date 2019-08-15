@@ -14,30 +14,30 @@ tags:
 
 ### 有限状态机 Finite State Machines
    - 经典AI实现方式，将AI分为多个状态，一般一个时刻只会处于一个状态，状态间可以发生转变：
-  ```
-  class FSMState
-  {
-      virtual void onEnter();
-      virtual void onUpdate();
-      virtual void onExit();
-      list<FSMTransition> transitions;
-  };
+```c++
+class FSMState
+{
+    virtual void onEnter();
+    virtual void onUpdate();
+    virtual void onExit();
+    list<FSMTransition> transitions;
+};
 
-  class FSMTransition
-  {
-      virtual void isValid();
-      virtual FSMState* getNextState();
-      virtual void onTransition();
-  };
+class FSMTransition
+{
+    virtual void isValid();
+    virtual FSMState* getNextState();
+    virtual void onTransition();
+};
 
-  class FiniteStateMachine
-  {
-      void update();
-      list<FSMState> states;
-      FSMState* initialState;
-      FSMState* activeState;
-  };
-  ```
+class FiniteStateMachine
+{
+    void update();
+    list<FSMState> states;
+    FSMState* initialState;
+    FSMState* activeState;
+};
+```
    - 对于多个类似的状态，可以将它们整合为一个大的状态，这就是Hierarchical Finite State Machine分层有限状态机，这样可以有效减少状态间转移的数量。一般大的状态还会带一个特别的指针history指向上次运行的子状态，这样再次进入时可以从上次的状态继续运行
 ### 行为树 Behavior Trees
    - 将AI行为用树进行组织，每个节点拥有条件，符合条件才进入子树，直到找出可执行节点
