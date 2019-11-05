@@ -1,0 +1,220 @@
+---
+layout:     post
+title:      "Redis01 sds"
+subtitle:   "simple dynamic string"
+date:       2019-11-05 21:22:00
+author:     "zhouhd"
+header-img: "img/about-bg.jpg"
+catalog: true
+tags:
+    - DataBase
+    - Redis
+---
+
+```c++
+typedef char *sds;
+
+struct __attribute__ ((__packed__)) sdshdr5 {
+    unsigned char flags; /* 3 lsb of type, and 5 msb of string length */
+    char buf[];
+};
+
+struct __attribute__ ((__packed__)) sdshdr8 {
+    uint8_t len; /* used 有效内容的字节数，如果是字符串就是字符串长度 */
+    uint8_t alloc; /* excluding the header and null terminator 当前分配的buf长度 */
+    unsigned char flags; /* 3 lsb of type, 5 unused bits 字节数组类型5/8/16/32/64 */
+    char buf[]; // sds，字节数组
+};
+// sdshdr16
+// sdshdr32
+// sdshdr64
+```
+
+sds就是简单的char *，redis源码里面大部分情况下都是直接传递sds。下面的sdshdr就是sds的header，完整的结构。sds对应的就是sdshdr里面的buf数组。从sdshdr结构可以看出，sds很多操作都是先通过sds[-1]获得flags，再通过switch(flags)来根据不同类型进行不同操作。
+
+```c++
+static inline size_t sdslen(const sds s) {
+    unsigned char flags = s[-1];
+    switch(flags&SDS_TYPE_MASK) {
+        case SDS_TYPE_5:
+            return SDS_TYPE_5_LEN(flags);
+        case SDS_TYPE_8:
+            return SDS_HDR(8,s)->len;
+        case SDS_TYPE_16:
+            return SDS_HDR(16,s)->len;
+        case SDS_TYPE_32:
+            return SDS_HDR(32,s)->len;
+        case SDS_TYPE_64:
+            return SDS_HDR(64,s)->len;
+    }
+    return 0;
+}
+```
+
+sds一定是以\0结尾的，即使是空字符串。另外有len参数，可以在中间放\0，由此可见sds是一个通用的字节数组，不仅仅是字符串。下面对几个API进行简单分析，不过其实也没有什么特别的，关键还是上面的sds结构。
+
+```c++
+/* Enlarge the free space at the end of the sds string so that the caller
+ * is sure that after calling this function can overwrite up to addlen
+ * bytes after the end of the string, plus one more byte for nul term.
+ *
+ * Note: this does not change the *length* of the sds string as returned
+ * by sdslen(), but only the free buffer space we have.
+ * 
+ * 注意返回值，因为下面可能会重新分配内存，所以之前传进来的sds不应该再使用 */
+sds sdsMakeRoomFor(sds s, size_t addlen) {
+    void *sh, *newsh;
+    size_t avail = sdsavail(s);
+    size_t len, newlen;
+    char type, oldtype = s[-1] & SDS_TYPE_MASK;
+    int hdrlen;
+
+    /* Return ASAP if there is enough space left. */
+    if (avail >= addlen) return s;
+
+    len = sdslen(s);
+    sh = (char*)s-sdsHdrSize(oldtype);
+    newlen = (len+addlen);
+    if (newlen < SDS_MAX_PREALLOC)  // 小于1M倍增，大于增加1M
+        newlen *= 2;
+    else
+        newlen += SDS_MAX_PREALLOC;
+
+    type = sdsReqType(newlen);
+
+    /* Don't use type 5: the user is appending to the string and type 5 is
+     * not able to remember empty space, so sdsMakeRoomFor() must be called
+     * at every appending operation. */
+    if (type == SDS_TYPE_5) type = SDS_TYPE_8;
+
+    hdrlen = sdsHdrSize(type);
+    if (oldtype==type) {
+        newsh = s_realloc(sh, hdrlen+newlen+1);  // hdr没变，可以用realloc，不用自己memcpy
+        if (newsh == NULL) return NULL;
+        s = (char*)newsh+hdrlen;
+    } else {
+        /* Since the header size changes, need to move the string forward,
+         * and can't use realloc */
+        newsh = s_malloc(hdrlen+newlen+1);
+        if (newsh == NULL) return NULL;
+        memcpy((char*)newsh+hdrlen, s, len+1);  // 先复制原有字符串内容
+        s_free(sh);
+        s = (char*)newsh+hdrlen;
+        s[-1] = type;  // 设置类型
+        sdssetlen(s, len);  // 设置长度，注意这是原来的长度，make room不可能改变内容
+    }
+    sdssetalloc(s, newlen);  // 最后设置buf长度
+    return s;
+}
+```
+
+make room以后一般会向sds读入一些新数据，这个时候需要重新指定字节数组长度。
+
+```c++
+/* Increment the sds length and decrements the left free space at the
+ * end of the string according to 'incr'. Also set the null term
+ * in the new end of the string.
+ *
+ * This function is used in order to fix the string length after the
+ * user calls sdsMakeRoomFor(), writes something after the end of
+ * the current string, and finally needs to set the new length.
+ *
+ * Note: it is possible to use a negative increment in order to  // 注意可以用负值来缩短长度
+ * right-trim the string.
+ *
+ * Usage example:
+ *
+ * Using sdsIncrLen() and sdsMakeRoomFor() it is possible to mount the
+ * following schema, to cat bytes coming from the kernel to the end of an
+ * sds string without copying into an intermediate buffer:
+ *
+ * oldlen = sdslen(s);
+ * s = sdsMakeRoomFor(s, BUFFER_SIZE);
+ * nread = read(fd, s+oldlen, BUFFER_SIZE);
+ * ... check for nread <= 0 and handle it ...
+ * sdsIncrLen(s, nread);
+ */
+void sdsIncrLen(sds s, ssize_t incr) {
+    unsigned char flags = s[-1];
+    size_t len;
+    switch(flags&SDS_TYPE_MASK) {
+        case SDS_TYPE_5: {
+            unsigned char *fp = ((unsigned char*)s)-1;
+            unsigned char oldlen = SDS_TYPE_5_LEN(flags);
+            assert((incr > 0 && oldlen+incr < 32) || (incr < 0 && oldlen >= (unsigned int)(-incr)));
+            *fp = SDS_TYPE_5 | ((oldlen+incr) << SDS_TYPE_BITS);
+            len = oldlen+incr;
+            break;
+        }
+        case SDS_TYPE_8: {
+            SDS_HDR_VAR(8,s);
+            assert((incr >= 0 && sh->alloc-sh->len >= incr) || (incr < 0 && sh->len >= (unsigned int)(-incr)));
+            len = (sh->len += incr);
+            break;
+        }
+        case SDS_TYPE_16: {
+            SDS_HDR_VAR(16,s);
+            assert((incr >= 0 && sh->alloc-sh->len >= incr) || (incr < 0 && sh->len >= (unsigned int)(-incr)));
+            len = (sh->len += incr);
+            break;
+        }
+        case SDS_TYPE_32: {
+            SDS_HDR_VAR(32,s);
+            assert((incr >= 0 && sh->alloc-sh->len >= (unsigned int)incr) || (incr < 0 && sh->len >= (unsigned int)(-incr)));
+            len = (sh->len += incr);
+            break;
+        }
+        case SDS_TYPE_64: {
+            SDS_HDR_VAR(64,s);
+            assert((incr >= 0 && sh->alloc-sh->len >= (uint64_t)incr) || (incr < 0 && sh->len >= (uint64_t)(-incr)));
+            len = (sh->len += incr);
+            break;
+        }
+        default: len = 0; /* Just to avoid compilation warnings. */
+    }
+    s[len] = '\0';
+}
+```
+
+对于格式化字符串sdscatvprintf，实在是没有什么好办法预估长度，只能倍增了
+
+```c++
+/* Like sdscatprintf() but gets va_list instead of being variadic. */
+sds sdscatvprintf(sds s, const char *fmt, va_list ap) {
+    va_list cpy;
+    char staticbuf[1024], *buf = staticbuf, *t;
+    size_t buflen = strlen(fmt)*2;
+
+    /* We try to start using a static buffer for speed.
+     * If not possible we revert to heap allocation. */
+    if (buflen > sizeof(staticbuf)) {  // 尝试使用栈空间
+        buf = s_malloc(buflen);
+        if (buf == NULL) return NULL;
+    } else {
+        buflen = sizeof(staticbuf);
+    }
+
+    /* Try with buffers two times bigger every time we fail to
+     * fit the string in the current buffer size. */
+    while(1) {
+        buf[buflen-2] = '\0';
+        va_copy(cpy,ap);  // 注意不要直接用传进来的，用备份的
+        vsnprintf(buf, buflen, fmt, cpy);
+        va_end(cpy);
+        if (buf[buflen-2] != '\0') {
+            if (buf != staticbuf) s_free(buf);
+            buflen *= 2;
+            buf = s_malloc(buflen);
+            if (buf == NULL) return NULL;
+            continue;
+        }
+        break;
+    }
+
+    /* Finally concat the obtained string to the SDS string and return it. */
+    t = sdscat(s, buf);  // 生成结果放到返回值，注意不会覆盖s原有内容，用的是拼接
+    if (buf != staticbuf) s_free(buf);
+    return t;
+}
+```
+
