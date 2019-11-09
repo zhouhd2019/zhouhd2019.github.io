@@ -1,0 +1,273 @@
+---
+layout:     post
+title:      "Redis04 dict"
+subtitle:   "dict"
+date:       2019-11-09 14:30:00
+author:     "zhouhd"
+header-img: "img/about-bg.jpg"
+catalog: true
+tags:
+    - DataBase
+    - Redis
+---
+
+dict在redis内被广泛使用，redis的kv数据库本身就是用dict实现的。
+
+```c++
+typedef struct dictEntry {
+    void *key;
+    union {
+        void *val;
+        uint64_t u64;
+        int64_t s64;
+        double d;
+    } v;  // 值可以存储多种类型，一般用的是val
+    struct dictEntry *next;  // 解决冲突的链表
+} dictEntry;
+
+typedef struct dictType {  // 不同类型的dict可以有不同的操作函数，例如zset的dict就不需要kv destructor，因为skiplist会处理
+    uint64_t (*hashFunction)(const void *key);
+    void *(*keyDup)(void *privdata, const void *key);
+    void *(*valDup)(void *privdata, const void *obj);
+    int (*keyCompare)(void *privdata, const void *key1, const void *key2);
+    void (*keyDestructor)(void *privdata, void *key);
+    void (*valDestructor)(void *privdata, void *obj);
+} dictType;
+
+/* This is our hash table structure. Every dictionary has two of this as we
+ * implement incremental rehashing, for the old to the new table. */
+typedef struct dictht {  // dict底层的哈希表
+    dictEntry **table;
+    unsigned long size;
+    unsigned long sizemask;
+    unsigned long used;
+} dictht;
+
+typedef struct dict {
+    dictType *type;
+    void *privdata;
+    dictht ht[2];  // 用两个哈希表，因为要支持渐进式rehash
+    long rehashidx; /* rehashing not in progress if rehashidx == -1 */  // rehash到哪个bucket
+    unsigned long iterators; /* number of iterators currently running */
+} dict;
+
+/* If safe is set to 1 this is a safe iterator, that means, you can call
+ * dictAdd, dictFind, and other functions against the dictionary even while
+ * iterating. Otherwise it is a non safe iterator, and only dictNext()
+ * should be called while iterating. */
+typedef struct dictIterator {  // 有两种迭代器，安全和非安全的
+    dict *d;
+    long index;
+    int table, safe;
+    dictEntry *entry, *nextEntry;
+    /* unsafe iterator fingerprint for misuse detection. */
+    long long fingerprint;
+} dictIterator;
+```
+
+有两个地方值得注意，一个是渐进式rehash，另一个是安全与非安全迭代器
+
+先看一下渐进式rehash，每次处理一个bucket，限制遍历空bucket个数，
+
+```c++
+/* Performs N steps of incremental rehashing. Returns 1 if there are still
+ * keys to move from the old to the new hash table, otherwise 0 is returned.
+ *
+ * Note that a rehashing step consists in moving a bucket (that may have more
+ * than one key as we use chaining) from the old to the new hash table, however
+ * since part of the hash table may be composed of empty spaces, it is not
+ * guaranteed that this function will rehash even a single bucket, since it
+ * will visit at max N*10 empty buckets in total, otherwise the amount of
+ * work it does would be unbound and the function may block for a long time. */
+int dictRehash(dict *d, int n) {  // 渐进式，n表示这次rehash处理几次，一般每次移一个bucket
+    int empty_visits = n*10; /* Max number of empty buckets to visit. */
+    if (!dictIsRehashing(d)) return 0;
+
+    while(n-- && d->ht[0].used != 0) {
+        dictEntry *de, *nextde;
+
+        /* Note that rehashidx can't overflow as we are sure there are more
+         * elements because ht[0].used != 0 */
+        assert(d->ht[0].size > (unsigned long)d->rehashidx);
+        while(d->ht[0].table[d->rehashidx] == NULL) {  // 空bucket，跳过
+            d->rehashidx++;
+            if (--empty_visits == 0) return 1;  // 避免耗时太长，最多跳过n*10个空bucket
+        }
+        de = d->ht[0].table[d->rehashidx];
+        /* Move all the keys in this bucket from the old to the new hash HT */
+        // ht[0]---->ht[1]
+        while(de) {
+            uint64_t h;
+
+            nextde = de->next;
+            /* Get the index in the new hash table */
+            h = dictHashKey(d, de->key) & d->ht[1].sizemask;
+            de->next = d->ht[1].table[h];  // 插入到最前面
+            d->ht[1].table[h] = de;
+            d->ht[0].used--;
+            d->ht[1].used++;  // used是目前有多少entry
+            de = nextde;
+        }
+        d->ht[0].table[d->rehashidx] = NULL;  // 这个bucket搞定了
+        d->rehashidx++;
+    }
+
+    /* Check if we already rehashed the whole table... */
+    if (d->ht[0].used == 0) {
+        zfree(d->ht[0].table);
+        d->ht[0] = d->ht[1];
+        _dictReset(&d->ht[1]);
+        d->rehashidx = -1;
+        return 0;
+    }
+
+    /* More to rehash... */
+    return 1;
+}
+```
+
+上面就是渐进式rehash，每次进行其它操作例如插入就会前进1步，并且空闲时会定期前进100步。接下来看看迭代相关的。
+迭代器分为安全和不安全的，如果是安全的，在迭代时就可以进行修改操作，但不能rehash。普通迭代器（非安全）则刚好相反，不可以修改，可以rehash。这里引用一下深度历险中的说法。
+
+```
+迭代器的「安全」指的是在遍历过程中可以对字典进行查找和修改，不用感到担心，因为查找和修改会触发过期判断，会删除内部元素。「安全」的另一层意思是迭代过程中不会出现元素重复，为了保证不重复，就会禁止 rehashStep。
+而「不安全」的迭代器是指遍历过程中字典是只读的，你不可以修改，你只能调用 dictNext 对字典进行持续遍历，不得调用任何可能触发过期判断的函数。不过好处是不影响 rehash，代价就是遍历的元素可能会出现重复。
+安全迭代器在刚开始遍历时，会给字典打上一个标记，有了这个标记，rehashStep 就不会执行，遍历时元素就不会出现重复。
+
+简单一点说，那就是如果遍历过程中不允许出现重复，那就使用SafeIterator，比如下面的两种情况
+
+bgaofrewrite需要遍历所有对象转换称操作指令进行持久化，绝对不允许出现重复
+bgsave也需要遍历所有对象来持久化，同样不允许出现重复
+
+如果遍历过程中需要处理元素过期，需要对字典进行修改，那也必须使用SafeIterator，因为非安全的迭代器是只读的。
+其它情况下，也就是允许遍历过程中出现个别元素重复，不需要对字典进行结构性修改的情况下一律使用非安全迭代器。
+
+作者：老錢
+链接：https://juejin.im/post/5b73aaec518825612d644a12
+来源：掘金
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
+
+```c++
+dictEntry *dictNext(dictIterator *iter)  // 获取下一个entry
+{
+    while (1) {
+        if (iter->entry == NULL) {  // 当前指向的是空的
+            dictht *ht = &iter->d->ht[iter->table];
+            if (iter->index == -1 && iter->table == 0) {  // 刚开始遍历
+                if (iter->safe)  // safe的要在dict标记一下
+                    iter->d->iterators++;
+                else  // 不是safe的就要记录指纹，后面需要对比
+                    iter->fingerprint = dictFingerprint(iter->d);
+            }
+            iter->index++;  // 遍历下一个bucket
+            if (iter->index >= (long) ht->size) {  // 这个bucket遍历完了
+                if (dictIsRehashing(iter->d) && iter->table == 0) {  // rehashing就继续遍历下一个
+                    iter->table++;
+                    iter->index = 0;
+                    ht = &iter->d->ht[1];
+                } else {  // 没有rehashing就说明dict已经遍历完了
+                    break;
+                }
+            }
+            iter->entry = ht->table[iter->index];  // 获取entry
+        } else {  // 当前指向的不是空的，指向下一个
+            iter->entry = iter->nextEntry;
+        }
+        if (iter->entry) {  // 有entry，返回它
+            /* We need to save the 'next' here, the iterator user
+             * may delete the entry we are returning. */
+            iter->nextEntry = iter->entry->next;
+            return iter->entry;
+        }
+    }
+    return NULL;
+}
+```
+
+上述的遍历一般来说只发生在一个指令执行的期间，都是一次性遍历整个dict的。dict还有一种特别的迭代，dictScan，用于给客户端分多次遍历dict。这个函数有非常长的注释，这里简单说一下。dictScan每次用的时候必须提供一个游标，0代表重新开始，否则应该用上次dictScan返回的游标值，从上次的地方继续遍历。dictScan保证所有元素至少出现一次，可能重复。遍历的算法支持扩容和缩容，比较特别，核心思想是递增最高位，而不是直接+1。由于递增的是最高位，所以扩容缩容后不会再去遍历已经遍历过的bucket，缩容可能会出现重复遍历。不过这个算法要求dict的扩容缩容因子必须是2，每次返回整个bucket的entry。更详细的说明可以参考[chenzhenianqing](http://chenzhenianqing.com/articles/1101.html)。
+
+```c++
+unsigned long dictScan(dict *d,
+                       unsigned long v,
+                       dictScanFunction *fn,
+                       dictScanBucketFunction* bucketfn,
+                       void *privdata)
+{
+    dictht *t0, *t1;
+    const dictEntry *de, *next;
+    unsigned long m0, m1;
+
+    if (dictSize(d) == 0) return 0;
+
+    if (!dictIsRehashing(d)) {  // 只看ht[0]就可以了
+        t0 = &(d->ht[0]);
+        m0 = t0->sizemask;
+
+        /* Emit entries at cursor */
+        if (bucketfn) bucketfn(privdata, &t0->table[v & m0]);
+        de = t0->table[v & m0];
+        while (de) {
+            next = de->next;
+            fn(privdata, de);
+            de = next;
+        }
+
+        /* Set unmasked bits so incrementing the reversed cursor
+         * operates on the masked bits */
+        v |= ~m0;
+
+        /* Increment the reverse cursor */
+        v = rev(v);
+        v++;
+        v = rev(v);
+
+    } else {
+        t0 = &d->ht[0];
+        t1 = &d->ht[1];
+
+        /* Make sure t0 is the smaller and t1 is the bigger table */
+        if (t0->size > t1->size) {
+            t0 = &d->ht[1];
+            t1 = &d->ht[0];
+        }
+
+        m0 = t0->sizemask;
+        m1 = t1->sizemask;
+
+        // 先遍历小的
+        /* Emit entries at cursor */
+        if (bucketfn) bucketfn(privdata, &t0->table[v & m0]);
+        de = t0->table[v & m0];
+        while (de) {
+            next = de->next;
+            fn(privdata, de);
+            de = next;
+        }
+
+        // 再遍历大的，由于算法递增最高位，所以要遍历大ht里面拥有相同前缀的
+        /* Iterate over indices in larger table that are the expansion
+         * of the index pointed to by the cursor in the smaller table */
+        do {
+            /* Emit entries at cursor */
+            if (bucketfn) bucketfn(privdata, &t1->table[v & m1]);
+            de = t1->table[v & m1];
+            while (de) {
+                next = de->next;
+                fn(privdata, de);
+                de = next;
+            }
+
+            /* Increment the reverse cursor not covered by the smaller mask.*/
+            v |= ~m1;
+            v = rev(v);
+            v++;
+            v = rev(v);
+
+            /* Continue while bits covered by mask difference is non-zero */
+        } while (v & (m0 ^ m1));
+    }
+
+    return v;
+}
+```
