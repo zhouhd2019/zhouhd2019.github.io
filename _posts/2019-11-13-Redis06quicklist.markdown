@@ -2,7 +2,7 @@
 layout:     post
 title:      "Redis06 quicklist"
 subtitle:   "quicklist"
-date:       2019-11-12 20:47:00
+date:       2019-11-13 10:37:00
 author:     "zhouhd"
 header-img: "img/about-bg.jpg"
 catalog: true
@@ -303,6 +303,7 @@ int quicklistDelRange(quicklist *quicklist, const long start,
           "node count: %u",
           extent, del, entry.offset, delete_entire_node, node->count);
 
+        // 可能删除整个，可能删除部分
         if (delete_entire_node) {
             __quicklistDelNode(quicklist, node);
         } else {
