@@ -47,15 +47,15 @@ ziplist的组成比较复杂，这里引用[zhangtielei](http://zhangtielei.com/
 >
 >我们再来看一下每一个数据项entry的构成：
 >
->|prevrawlen|len|data|
+>|prevrawlen|encoding|data|
 >
 >我们看到在真正的数据（data）前面，还有两个字段：
 >
 >prevrawlen: 表示前一个数据项占用的总字节数。这个字段的用处是为了让ziplist能够从后向前遍历（从后一项的位置，只需向前偏移prevrawlen个字节，就找到了前一项）。这个字段采用变长编码。
 >
->len: 表示当前数据项的数据长度（即data部分的长度）。也采用变长编码。
+>encoding: 表示当前数据项的数据长度（即data部分的长度）和类型，也采用变长编码。
 
-prevrawlen和len都是变长编码，这里就不展开了。
+prevrawlen和encoding都是变长编码，这里就不展开了。
 
 ziplist的接口不多，只看下其中几个。
 
