@@ -11,7 +11,7 @@ tags:
     - Redis
 ---
 
-listpack用来序列化一组字符串，当然redis里面的字符串包括整型。listpack和ziplist非常相似，都是没有具体的struct定义，具体内容直接用字节数组来存放。最大的不同是每个entry的格式有点不一样。ziplist entry存了prevlen和自身的len（包含在encoding），排列顺序为prevlen|encoding|data，而listpack entry只有自己的len，排列为encoding|data|len。从插入API就可以知道listpack entry的这个顺序。不过由于插入、删除和替换的代码比较类似，所以listpack都用lpInsert来实现。
+listpack用来序列化一组字符串，当然redis里面的字符串包括整型。listpack和ziplist非常相似，都是没有具体的struct定义，具体内容直接用字节数组来存放。最大的不同是每个entry的格式有点不一样。ziplist entry存了prevlen和自身的len（包含在encoding），排列顺序为prevlen-encoding-data，而listpack entry只有自己的len，排列为encoding-data-len。从插入API就可以知道listpack entry的这个顺序。不过由于插入、删除和替换的代码比较类似，所以listpack都用lpInsert来实现。
 
 ```c++
 /* Insert, delete or replace the specified element 'ele' of length 'len' at
