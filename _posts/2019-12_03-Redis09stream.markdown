@@ -62,4 +62,6 @@ typedef struct streamConsumer {
 } streamConsumer;
 ```
 
-streamAppendItem向stream插入一条消息。每个listpack都由一个master entry开始，保存了field-value对，如果后续entry的field和master的一样，那么就可以不保存field。
+streamAppendItem向stream插入一条消息。每个listpack都由一条主消息开始，保存了field-value对，如果后续消息的field和master的一样，那么就可以不保存field。注意并不是每条消息都一个listpack，主消息id对应着listpack，而后续其它消息直接插入未满的listpack，直到这个listpack超过配置大小或者entry数量上限，才会新建rax node和listpack。所以每条消息有多个listpack entry，每个listpack会保存多条消息。
+
+
