@@ -1,0 +1,112 @@
+---
+layout:     post
+title:      "Redis10 robj"
+subtitle:   "robj"
+date:       2019-12-10 22:57:00
+author:     "zhouhd"
+header-img: "img/about-bg.jpg"
+catalog: true
+tags:
+    - DataBase
+    - Redis
+---
+
+robj是redis的通用对象类型，字符串、列表等等数据结构都不会直接使用，而是放在robj里面。从代码可以看出，基本类型现在不止5种了，还有module和stream。type表示对象类型，encoding表示对象是如何存储的。ptr指向具体对象。refcount是引用计数。lru是lru或者lfu相关数据。
+
+```c++
+/* A redis object, that is a type able to hold a string / list / set */
+
+/* The actual Redis Object */
+#define OBJ_STRING 0    /* String object. */
+#define OBJ_LIST 1      /* List object. */
+#define OBJ_SET 2       /* Set object. */
+#define OBJ_ZSET 3      /* Sorted set object. */
+#define OBJ_HASH 4      /* Hash object. */
+#define OBJ_MODULE 5    /* Module object. */
+#define OBJ_STREAM 6    /* Stream object. */
+
+/* Objects encoding. Some kind of objects like Strings and Hashes can be
+ * internally represented in multiple ways. The 'encoding' field of the object
+ * is set to one of this fields for this object. */
+#define OBJ_ENCODING_RAW 0     /* Raw representation */
+#define OBJ_ENCODING_INT 1     /* Encoded as integer */
+#define OBJ_ENCODING_HT 2      /* Encoded as hash table */
+#define OBJ_ENCODING_ZIPMAP 3  /* Encoded as zipmap */
+#define OBJ_ENCODING_LINKEDLIST 4 /* No longer used: old list encoding. */
+#define OBJ_ENCODING_ZIPLIST 5 /* Encoded as ziplist */
+#define OBJ_ENCODING_INTSET 6  /* Encoded as intset */
+#define OBJ_ENCODING_SKIPLIST 7  /* Encoded as skiplist */
+#define OBJ_ENCODING_EMBSTR 8  /* Embedded sds string encoding */
+#define OBJ_ENCODING_QUICKLIST 9 /* Encoded as linked list of ziplists */
+#define OBJ_ENCODING_STREAM 10 /* Encoded as a radix tree of listpacks */
+
+#define LRU_BITS 24
+#define LRU_CLOCK_MAX ((1<<LRU_BITS)-1) /* Max value of obj->lru */
+#define LRU_CLOCK_RESOLUTION 1000 /* LRU clock resolution in ms */
+
+#define OBJ_SHARED_REFCOUNT INT_MAX
+typedef struct redisObject {
+    unsigned type:4;
+    unsigned encoding:4;
+    unsigned lru:LRU_BITS; /* LRU time (relative to global lru_clock) or
+                            * LFU data (least significant 8 bits frequency
+                            * and most significant 16 bits access time). */
+    int refcount;
+    void *ptr;
+} robj;
+```
+
+下面是几种对象的创建函数。创建字符串分为两种情况，如果长度小于44，就是OBJ_ENCODING_EMBSTR，字符串紧跟在robj后面，一次分配一个sdshdr8，否则就是通用的两次分配。
+```c++
+/* Create a string object with EMBSTR encoding if it is smaller than
+ * OBJ_ENCODING_EMBSTR_SIZE_LIMIT, otherwise the RAW encoding is
+ * used.
+ *
+ * The current limit of 44 is chosen so that the biggest string object
+ * we allocate as EMBSTR will still fit into the 64 byte arena of jemalloc. */
+#define OBJ_ENCODING_EMBSTR_SIZE_LIMIT 44
+robj *createStringObject(const char *ptr, size_t len) {
+    if (len <= OBJ_ENCODING_EMBSTR_SIZE_LIMIT)
+        return createEmbeddedStringObject(ptr,len);
+    else
+        return createRawStringObject(ptr,len);
+}
+```
+
+创建整数对象也值得注意，如果整数大于0并小于OBJ_SHARED_INTEGERS，则直接使用小整数共享对象池。如果可以用long表示，就用OBJ_ENCODING_INT，否则表示成字符串。
+```c++
+/* Create a string object from a long long value. When possible returns a
+ * shared integer object, or at least an integer encoded one.
+ *
+ * If valueobj is non zero, the function avoids returning a a shared
+ * integer, because the object is going to be used as value in the Redis key
+ * space (for instance when the INCR command is used), so we want LFU/LRU
+ * values specific for each key. */
+robj *createStringObjectFromLongLongWithOptions(long long value, int valueobj) {
+    robj *o;
+
+    if (server.maxmemory == 0 ||
+        !(server.maxmemory_policy & MAXMEMORY_FLAG_NO_SHARED_INTEGERS))
+    {
+        /* If the maxmemory policy permits, we can still return shared integers
+         * even if valueobj is true. */
+        valueobj = 0;
+    }
+
+    if (value >= 0 && value < OBJ_SHARED_INTEGERS && valueobj == 0) {
+        incrRefCount(shared.integers[value]);
+        o = shared.integers[value];
+    } else {
+        if (value >= LONG_MIN && value <= LONG_MAX) {
+            o = createObject(OBJ_STRING, NULL);
+            o->encoding = OBJ_ENCODING_INT;
+            o->ptr = (void*)((long)value);
+        } else {
+            o = createObject(OBJ_STRING,sdsfromlonglong(value));
+        }
+    }
+    return o;
+}
+```
+
+最后值得一提的是refcount，新版本redis引入了懒惰删除。对于绝大部分外部引起的删除，例如各种删除命令，如果对象大小超过LAZYFREE_THRESHOLD(默认64)且refcount已经为1，会用懒惰删除的方式，让后台线程去做。懒惰删除简单来说就是在删除时bioCreateBackgroundJob将要删除的对象放入全局链表中，后台线程执行bioProcessBackgroundJobs处理删除对象的全局链表。
