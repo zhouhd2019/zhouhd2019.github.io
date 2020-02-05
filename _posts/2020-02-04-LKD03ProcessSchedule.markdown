@@ -11,7 +11,7 @@ tags:
     - Linux Kernel
 ---
 
-对应LKD3第四章进程调度。
+对应LKD3第4章进程调度。
 
 - 每个进程的进程描述符task_struct都有一个sched_entity成员变量，用来存放进程调度相关信息。sched_entity->vruntime存放进程的虚拟运行时间，CFS调度算法会选择vruntime最小的进程来作为下一个运行的进程。
 - CFS调度器使用红黑树存储可运行进程，键值是vruntime。所以理论上是找树最左边的叶子节点，不过这个节点会缓存在rb_leftmost。

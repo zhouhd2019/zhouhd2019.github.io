@@ -1,0 +1,18 @@
+---
+layout:     post
+title:      "LDK Syscall"
+subtitle:   "系统调用"
+date:       2020-02-05 21:29:00
+author:     "zhouhd"
+header-img: "img/about-bg.jpg"
+catalog: true
+tags:
+    - Linux
+    - Linux Kernel
+---
+
+对应LKD3第5章系统调用。
+
+- 应用程序通过软中断通知系统，告诉内核自己需要执行一个系统调用，就是引发一个异常来促使系统切换到内核态去执行异常处理程序，这里被调用的异常处理程序就是系统调用处理程序system_call()。x86还增加了一条叫做sysenter的指令，能更快更专业的陷入内核执行系统调用。
+- 系统调用号一般通过eax寄存器传递，其它参数通过ebx/ecx/edx/esi/edi存放，还有更多的则用其中一个寄存器存放指向所有参数的指针。返回值用eax存放。
+- 系统调用不能直接使用指针参数，必须要通过copy_from_user()来进行检查并从用户空间读取数据。同样有copy_to_user()。还有capable()函数来检查进程有没有相关权限，如capable(CAP_SYS_NICE)检查调用者有没有权限改变其它进程的nice值。
