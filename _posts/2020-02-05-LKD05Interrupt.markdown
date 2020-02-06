@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "LDK Interrupt"
+title:      "LKD Interrupt"
 subtitle:   "中断和中断处理"
 date:       2020-02-05 22:29:00
 author:     "zhouhd"

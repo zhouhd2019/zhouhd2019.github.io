@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "LDK Kernel Sync"
+title:      "LKD Kernel Sync"
 subtitle:   "内核同步"
 date:       2020-02-06 16:31:00
 author:     "zhouhd"

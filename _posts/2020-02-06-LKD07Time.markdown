@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "LDK Time"
+title:      "LKD Time"
 subtitle:   "定时器和时间管理"
 date:       2020-02-06 17:19:00
 author:     "zhouhd"

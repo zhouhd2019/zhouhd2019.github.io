@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "LDK Memory"
+title:      "LKD Memory"
 subtitle:   "内存管理"
 date:       2020-02-06 20:33:00
 author:     "zhouhd"

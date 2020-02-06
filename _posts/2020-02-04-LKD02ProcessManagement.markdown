@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "LDK Process Mangement"
+title:      "LKD Process Mangement"
 subtitle:   "进程管理"
 date:       2020-02-04 20:46:00
 author:     "zhouhd"

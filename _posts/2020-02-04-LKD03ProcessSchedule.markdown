@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "LDK Process Schedule"
+title:      "LKD Process Schedule"
 subtitle:   "进程调度"
 date:       2020-02-04 21:29:00
 author:     "zhouhd"

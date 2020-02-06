@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "LDK Preview"
+title:      "LKD Preview"
 subtitle:   "Preview"
 date:       2020-02-03 21:26:00
 author:     "zhouhd"
