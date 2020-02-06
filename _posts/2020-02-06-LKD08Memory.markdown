@@ -1,0 +1,22 @@
+---
+layout:     post
+title:      "LDK Memory"
+subtitle:   "内存管理"
+date:       2020-02-06 20:33:00
+author:     "zhouhd"
+header-img: "img/about-bg.jpg"
+catalog: true
+tags:
+    - Linux
+    - Linux Kernel
+---
+
+对应LKD3第12章内存管理。
+
+- 内存管理单元MMU以页为单位对内存进行管理，对应结构体是struct page，面对物理页而不是虚拟页。
+- Linux要对内存划分不同区域，因为某些硬件只能用特定内存地址，另外某些体系的物理寻址范围比虚拟寻址范围更大。主要使用4种区：ZONE_DMA、ZONE_DMA32、ZONE_NORMAL、ZONE_HIGHEM。注意x86-64可以映射和处理64位的内存空间，所以只有ZONE_DMA和ZONE_NORMAL。
+- alloc_page和free_page系列函数用来请求和释放以页为单位的内存。
+- kmalloc()和kfree()用来请求和释放以字节为单位的内核内存。
+- vmalloc()和kmalloc()类似，不过它分配的内存虚拟地址是连续的，而物理地址不一定连续，这和用户空间分配函数malloc()是一样的。vmalloc()在内核比较少使用，因为不连续的物理页转换位虚拟空间上的连续页，需要专门的页表项，地址转换变多，会慢一些。一般用于请求大块内存，例如用于转载内核模块。
+- slab就是内核的对象池，直接管理常用的内核对象的请求和释放，每种对象都有自己的被称为高速缓存组的对象池。slab内部使用__get_free_pages()低级内核页分配器请求空间。
+- 如果需要连续物理页，可以使用某个低级页分配器或kmalloc()；如果想从高端内存进行分配，就使用alloc_pages()；如果不需要物理连续，就用vmalloc()；如果要创建和撤销很多大的数据结构，考虑slab。
