@@ -1,0 +1,19 @@
+---
+layout:     post
+title:      "LDK Time"
+subtitle:   "定时器和时间管理"
+date:       2020-02-06 17:19:00
+author:     "zhouhd"
+header-img: "img/about-bg.jpg"
+catalog: true
+tags:
+    - Linux
+    - Linux Kernel
+---
+
+对应LKD3第11章定时器和时间管理。
+
+- 目前Linux的系统定时器频率（节拍率）是1000，即每秒1000下。内核用jiffies记录自系统启动以来产生的节拍数。
+- 每个节拍都会调用时钟中断处理程序，会进行很多工作，例如更新jiffies、更新系统时钟、更新资源消耗的统计值（进程运行时间）、进程调度相关工作、时钟软中断相关。
+- 内核将定时器使用timer wheel的方式进行管理。
+- 如果延时执行的时间很短，小于一个节拍的时间，可以简单用一个忙循环，循环一定的次数（根据处理器频率计算）。
