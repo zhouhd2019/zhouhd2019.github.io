@@ -1,0 +1,40 @@
+---
+layout:     post
+title:      "etcd raft"
+subtitle:   "Raft协议"
+date:       2020-03-18 23:11:00
+author:     "zhouhd"
+header-img: "img/about-bg.jpg"
+catalog: true
+tags:
+    - etcd
+    - raft
+---
+
+本系列是对etcd技术内幕一书的摘要。首先是第2章Raft协议。
+
+### raft
+- raft协议中，节点会处于Leader/Follower/Candidate三种状态之一。大多数情况下，集群只有一个Leader，其它节点都处于Follower
+- Leader节点负责处理所有客户端请求，会定期给Follower发送心跳消息，防止其它节点的选举计时器超时而触发新一轮选举
+- Follower不会主动发送请求或者处理请求，只会响应其它节点请求，或者转发客户端请求
+- 当Follower长时间没有收到Leader心跳，会变为Candidate发起选举，尝试变为Leader
+
+### 选举
+- Follower长时间没有收到Leader心跳，等待一个election timeout后，会切换成Candidate并发起选举
+- Term任期每进行一次选举都会加一，如果本次任期没能选出Leader，先结束election timeout的节点会再次增加任期并发起选举
+- 收到Term值比自己大的请求，节点会给请求的节点投票，自身切换成Follower并更新Term
+- 心跳广播时间 << 选举超时时间 << 平均故障间隔时间
+
+### 日志复制
+- 接收到写入请求时，Leader会在本地追加一条相应日志，然后将该消息发送到集群其它Follower节点。当半数以上节点已收到并给Leader返回响应，Leader就会给客户端返回已提交响应，通知Follower该日志已提交，最后Leader和Follower会将日志应用到自己的状态机
+- 每个节点会维护commitIndex和lastApplied两个值，前者表示当前节点最大的已提交的日志索引值，后者表示最大的已应用到状态机的日志索引值。Leader还会维护nextIndex\[\]和matchIndex\[\]两个数组，前者记录需要发送给Follower下一条日志索引值，后者表示已经复制给Follower节点的最大日志索引值。新Leader的nextIndex数组会重置成自身最后一条已提交的索引值，matchIndex数组会清0
+- 选举时会比较请求的日志记录，只会给日志记录比自身新的节点投票，保证新Leader包含全部已提交日志
+
+### 网络分区
+- 如果大部分节点处于可通讯状态，那么此时集群还是可以进行选举等操作
+- 因为网络分区的存在，所以客户端选择节点时应该考虑随机选择，而不是只连接Leader，这样才能及时连上新Leader
+
+### 其它
+- 客户端每次向集群发送一次请求只会执行一次，依赖客户端对每个请求都产生一个唯一的编号
+- 只读请求为了保证一致性，Leader会记录只读请求发起时最大commitIdnex，并且发送心跳，等到集群大多数节点最大commitIndex达到或者超过只读请求时的记录，才能返回只读请求结果
+- 每个节点发起选举请求前，应先保证能够连接大多数节点，否则选举肯定不会成功
