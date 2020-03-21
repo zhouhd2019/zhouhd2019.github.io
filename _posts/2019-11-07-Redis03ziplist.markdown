@@ -246,3 +246,5 @@ unsigned char *__ziplistInsert(unsigned char *zl, unsigned char *p, unsigned cha
     return zl;
 }
 ```
+
+kv对少于512，并且value长度少于64，hash会用ziplist实现，否则用dict
