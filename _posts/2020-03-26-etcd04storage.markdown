@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "storage
+title:      "storage"
 subtitle:   "etcd storage"
 date:       2020-03-26 00:11:00
 author:     "zhouhd"
