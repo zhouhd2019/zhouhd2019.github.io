@@ -1,7 +1,7 @@
 ---
 layout:     post
-title:      "kafkaTDG01"
-subtitle:   "Preview"
+title:      "kafka Preview"
+subtitle:   "kafkaTDG01"
 date:       2020-04-11 00:35:00
 author:     "zhouhd"
 header-img: "img/about-bg.jpg"
