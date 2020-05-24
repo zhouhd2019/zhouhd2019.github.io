@@ -1,0 +1,40 @@
+---
+layout:     post
+title:      "Inside MySQL"
+subtitle:   "InnoDB Storage Engine"
+date:       2020-05-24 23:40:00
+author:     "zhouhd"
+header-img: "img/about-bg.jpg"
+catalog: true
+tags:
+    - DataBase
+    - MySQL
+---
+
+MySQL技术内幕：InnoDB存储引擎摘要。由于工作中没有用到MySQL，所以主要以一些通用知识为主。
+
+### InnoDB存储引擎
+- InnoDB通过LRU管理缓冲池中的页。但最新读取到的页不会放到LRU列表首部，而是放到midpoint，默认5/8长度的地方，以此减少热点数据被刷出的可能。等待一段时间后才会将midpoint的数据假如到LRU列表首部
+- 重做日志可以基本杜绝数据丢失的可能，CheckPoint定期将脏页刷新到磁盘，并删除对应重做日志
+- 自适应哈希：InnoDB监控了各个索引页的查询，会自动对热点页单独建立哈希索引
+- binlog格式有三种，statement/row/mixed，对于mixed，一般用statement，特殊情况例如使用了不确定函数就会转为row
+  
+### 表/索引
+- InnoDB存储引擎的逻辑存储架构，所有数据都放在表空间(tablespace)，表空间由段(segment)组成，段由区(extent)组成，区由页(page)组成，页由数据行组成
+- B+树索引本身不能找到具体的某条记录，只能找到记录所在的页。数据库将页加载到内存，然后通过页的page directory进行二分查找找到最近记录，可能还要进行遍历，才能找到记录
+- 辅助索引叶子节点不包含行记录的全部数据，除了键值，就是一个书签，指向与索引对应的主索引叶子节点（同时是行数据）
+- 覆盖索引是指从辅助索引中就可以得到所需数据，辅助索引一般会占用更少空间，所以覆盖索引IO更少更快
+- Multi-Range Read优化，先将辅助索引键值存放到缓存，根据RowID排序，再进行数据行IO操作。可以将随机IO转化为顺序性更好的IO
+- Index Condition Pushdown(ICP)优化，取出索引的同时，判断是否可以进行WHERE条件的过滤，从而减少IO
+
+### 锁
+- InnoDB支持多粒度锁定，如果要对数据行上X(exclude)锁，先要对数据库/表/页上意向锁IX(intension)锁
+- 在Read Committed级别下，事务总是读取最新数据。在Repeatable Read，总是读取事务开始时的行数据快照版本。快照用undo段实现，所以空间上并没有额外开销。具体实现，每个数据行有一个undo指针，指向上一个版本的数据行
+- 自增长可以用默认的SELECT...FOR UPDATE来实现，也可以用更轻量的互斥量来实现，后者在多个事务大块数据插入时ID可能出现不连续现象，而且Statement Replication也会有问题
+- InnoDB存储引擎有三种行锁算法：Record Lock单个记录锁，Gap Lock间隙锁，Next-Key Lock锁定范围和记录本身（前两者之和）。间隙锁（当然也包括Next-Key）可以避免幻读问题
+- 死锁可以通过wait-for graph来检测，数据库记录了事务等待的资源和锁信息，如果依赖图出现环，则说明有死锁
+
+### 事务
+- 重做日志用来实现事务的持久性，事务提交前要先将修改写入重做日志文件进行持久化，才能进行COMMIT。redo重做日志通常是物理日志，记录页的物理修改操作。与此对比，用来回滚事务的undo是逻辑日志
+- undo log有两种，insert undo log一般可以事务提交后直接删除，update undo log要提供MVCC机制，所以不能简单删除
+- 清理undo log时，先从history list找undo log，再从对应undo page找可以清理的undo log。不会简单判断history list里面的每个txn，这样随机IO太多
