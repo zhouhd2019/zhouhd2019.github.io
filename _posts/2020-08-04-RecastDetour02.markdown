@@ -7,7 +7,7 @@ author:     "zhouhd"
 header-img: "img/about-bg.jpg"
 catalog: true
 tags:
-    - DataBase
+    - PathFinding
 ---
 
 光栅化下一步是筛选之前的区域，得到可行走区域，主要代码如下

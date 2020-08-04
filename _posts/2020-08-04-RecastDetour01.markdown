@@ -7,7 +7,7 @@ author:     "zhouhd"
 header-img: "img/about-bg.jpg"
 catalog: true
 tags:
-    - DataBase
+    - PathFinding
 ---
 
 以RecastDemo的Sample_TileMesh为例，简单看一下Recast Detour的部分源码。本节先看一下初始化和光栅化(体素化)过程。

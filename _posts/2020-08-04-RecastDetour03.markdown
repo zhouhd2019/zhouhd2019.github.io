@@ -7,7 +7,7 @@ author:     "zhouhd"
 header-img: "img/about-bg.jpg"
 catalog: true
 tags:
-    - DataBase
+    - PathFinding
 ---
 
 第三部分是生成紧凑的高度场，获得可行走cell，实际上就是rcBuildCompactHeightfield一个函数的逻辑
