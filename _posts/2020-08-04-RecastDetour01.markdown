@@ -394,10 +394,11 @@ static bool addSpan(rcHeightfield& hf, const int x, const int y,
 		s->next = hf.spans[idx];
 		hf.spans[idx] = s;
 	}
+	// y越大越靠近链表头部
 
 	return true;
 }
 ```
 
 ### 总结
-上述步骤完成了建立tile的第一步，rcRasterizeTriangles，遍历tile范围内的所有三角形，进行光栅化，得到的是rcHeightfield，将三角形在xz平面体素化，每个xz坐标对应一个span链表，每个span对应一个体素
+上述步骤完成了建立tile的第一步，rcRasterizeTriangles，遍历tile范围内的所有三角形，进行光栅化，得到的是rcHeightfield，将三角形在xz平面体素化，每个xz坐标对应一个span链表，每个span对应一个体素(准确来说是方形长条)
