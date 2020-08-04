@@ -11,7 +11,7 @@ tags:
 ---
 
 光栅化下一步是筛选之前的区域，得到可行走区域，主要代码如下
-```
+```c++
 // Once all geometry is rasterized, we do initial pass of filtering to
 // remove unwanted overhangs caused by the conservative rasterization
 // as well as filter spans where the character cannot possibly stand.
