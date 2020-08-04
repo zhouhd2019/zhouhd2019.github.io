@@ -19,7 +19,7 @@ m_chf = rcAllocCompactHeightfield();
 rcBuildCompactHeightfield(m_ctx, m_cfg.walkableHeight, m_cfg.walkableClimb, *m_solid, *m_chf);
 ```
 
-主要逻辑非常简单，将之前的数据转成紧凑的数据结构，例如将链表改成数组。并且还要计算出cell的连通性。不过这只是建立紧凑高度场的第一步，后续还会做出各种迭代和修改。
+主要逻辑非常简单，将之前的数据转成紧凑的数据结构，例如将链表改成数组，将原来的不可行走span转为可行走空间span。另外还要计算出cell的连通性。不过这只是建立紧凑高度场的第一步，后续还会做出各种迭代和修改。
 ```c++
 /// This is just the beginning of the process of fully building a compact heightfield.
 /// Various filters may be applied, then the distance field and regions built.
