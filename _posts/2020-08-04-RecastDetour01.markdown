@@ -394,7 +394,7 @@ static bool addSpan(rcHeightfield& hf, const int x, const int y,
 		s->next = hf.spans[idx];
 		hf.spans[idx] = s;
 	}
-	// y越大越靠近链表头部
+	// 从底到顶的链表
 
 	return true;
 }
