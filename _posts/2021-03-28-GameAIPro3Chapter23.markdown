@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Faster Dijkstra Search on Uniform Cost Grids"
-subtitle:   "GameAIPro3 Chapter22"
+subtitle:   "GameAIPro3 Chapter23"
 date:       2021-03-28  15:50:00
 author:     "zhouhd"
 header-img: "img/about-bg.jpg"
