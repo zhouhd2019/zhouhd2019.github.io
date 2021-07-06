@@ -9,7 +9,7 @@ catalog: true
 tags:
     - GameAI
     - GameAIPro
-    - GameAIPro2
+    - GameAIPro3
     - GameProgramming
 ---
 
