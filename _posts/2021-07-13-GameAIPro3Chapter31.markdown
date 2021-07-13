@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Behavior Decision System: Dragon Age Inquisition's Utility Scoring Architecture"
-subtitle:   "GameAIPro3 Chapter30"
+subtitle:   "GameAIPro3 Chapter31"
 date:       2021-07-13  11:31:00
 author:     "zhouhd"
 header-img: "img/about-bg.jpg"
