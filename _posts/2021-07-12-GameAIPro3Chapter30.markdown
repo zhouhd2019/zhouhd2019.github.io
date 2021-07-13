@@ -55,4 +55,3 @@ procedure NegaMax(State s, Portfolio p, Depth d)
 
 ## 其它
 - HPS的难度控制比较简单，例如改变底层行动的数量，使用不同顶层算法等等
-- 
