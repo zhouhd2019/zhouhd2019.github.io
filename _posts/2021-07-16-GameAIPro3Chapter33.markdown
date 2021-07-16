@@ -2,7 +2,7 @@
 layout:     post
 title:      "Using Your Combat AI Accuracy to Balance Difficulty"
 subtitle:   "GameAIPro3 Chapter33"
-date:       2021-07-16  20:48:00
+date:       2021-07-16  17:25:00
 author:     "zhouhd"
 header-img: "img/about-bg.jpg"
 catalog: true
