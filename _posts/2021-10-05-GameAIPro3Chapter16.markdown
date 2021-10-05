@@ -2,7 +2,7 @@
 layout:     post
 title:      "Predictive Animation Control Using Simulations and Fitted Models"
 subtitle:   "GameAIPro3 Chapter16"
-date:       2021-09-30  20:30:00
+date:       2021-10-05  15:10:00
 author:     "zhouhd"
 header-img: "img/about-bg.jpg"
 catalog: true
@@ -34,4 +34,11 @@ tags:
 - 第一个需要测算的是速度范围，先根据角色给定速度范围，然后看看动画速度能否符合要求，这里只对那些向前直走的动画进行评估
 - 接下来是停止移动的动画，需要测算它的初始速度和停止距离大比值
 - 减速动画需要测算速度降低量和所需距离的比值
-- 
+- Overshoot用于计算角色需要多少空间来转身，速度和角度差值对这个值影响较大
+- 让角色保持一定速度，边转弯边向前移动，轨迹圆的半径就是转弯半径
+
+### 运行时
+- 通过模拟提取的动作参数用于辅助运行时的Steering
+- 速度最大最小值用于限制可选速度范围，其它参数用于提高控制精度
+- 减速函数可以给出减速时需要的距离
+- 对于那些没有原地转身动作的角色，Overshoot可以让角色提前进行转弯
