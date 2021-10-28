@@ -19,7 +19,6 @@ tags:
 ### 概述和官方文档
 - cellnet用消息队列来处理收到的消息和不需要马上处理的操作，建议每个网络处理线程一个消息队列，减少竞争
 - 创建和开启队列的官方例子如下：
-
 ```golang
 queue := cellnet.NewEventQueue()
 // 启动队列
@@ -30,14 +29,12 @@ queue.Wait()
 ```
 
 - 投递回调代码如下：
-
 ```golang
 queue.Post(func() {fmt.Println("hello")})
 ```
 
 ### EventQueue
 - 典型的暴露接口，隐藏实现的做法
-
 ```golang
 // 事件队列
 type EventQueue interface {
@@ -64,7 +61,6 @@ type eventQueue struct {
 ```
 
 - 创建队列实现如下，主要是创建了Pipe来存放消息，并且指定了崩溃时的处理函数
-
 ```golang
 // 创建默认长度的队列
 func NewEventQueue() EventQueue {
@@ -80,7 +76,6 @@ func NewEventQueue() EventQueue {
 ```
 
 - 开启了崩溃捕获，并且指定了处理函数后，每次处理消息时，如果发生崩溃就会调用处理函数
-
 ```golang
 // 保护调用用户函数
 func (self *eventQueue) protectedCall(callback func()) {
@@ -97,7 +92,6 @@ func (self *eventQueue) protectedCall(callback func()) {
 
 ### StartLoop
 - 最关键的函数是循环StartLoop，通过Pick不断地从队列Pipe中取出消息，并进行处理
-
 ```golang
 // 开启事件循环
 func (self *eventQueue) StartLoop() EventQueue {
@@ -129,7 +123,6 @@ func (self *eventQueue) StartLoop() EventQueue {
 ```
 
 - 停止循环就是简单地放一个nil，从StartLoop也可以看出来
-
 ```golang
 // 停止事件循环
 func (self *eventQueue) StopLoop() EventQueue {
@@ -138,7 +131,6 @@ func (self *eventQueue) StopLoop() EventQueue {
 }
 ```
 - 线程调用StartLoop后，可以调用Wait等待循环结束
-
 ```golang
 // 等待退出消息
 func (self *eventQueue) Wait() {
@@ -148,7 +140,6 @@ func (self *eventQueue) Wait() {
 
 ### 主动投递
 - 逻辑代码可以主动投递一个函数到消息队列，例如别的线程要让主线程执行某段逻辑
-
 ```golang
 // 在会话对应的Peer上的事件队列中执行callback，如果没有队列，则马上执行
 func SessionQueuedCall(ses Session, callback func()) {
@@ -179,7 +170,6 @@ func (self *eventQueue) Post(callback func()) {
 
 ### Pipe
 - 简单的队列实现，支持唤醒
-
 ```golang
 // 不限制大小，添加不发生阻塞，接收阻塞等待
 type Pipe struct {
@@ -190,7 +180,6 @@ type Pipe struct {
 ```
 
 - 可以通过Pick取出数据，没有数据则阻塞，等待添加时通知
-
 ```golang
 // 如果没有数据，发生阻塞
 func (self *Pipe) Pick(retList *[]interface{}) (exit bool) {
@@ -214,7 +203,6 @@ func (self *Pipe) Pick(retList *[]interface{}) (exit bool) {
 ```
 
 - 添加时注意需要先锁上，以此支持别的线程投递消息
-
 ```golang
 // 添加时不会发送阻塞
 func (self *Pipe) Add(msg interface{}) {
