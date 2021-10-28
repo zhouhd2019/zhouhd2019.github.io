@@ -33,6 +33,7 @@ queue.Post(func() {fmt.Println("hello")})
 ```
 
 ### EventQueue
+- 典型的暴露接口，隐藏实现的做法
 ```golang
 // 事件队列
 type EventQueue interface {
@@ -59,7 +60,6 @@ type eventQueue struct {
 	onPanic CapturePanicNotifyFunc
 }
 ```
-- 典型的暴露接口，隐藏实现的做法
 - 创建队列实现如下，主要是创建了Pipe来存放消息，并且指定了崩溃时的处理函数
 ```golang
 // 创建默认长度的队列
@@ -161,11 +161,9 @@ func QueuedCall(queue EventQueue, callback func()) {
 
 // 派发事件处理回调到队列中
 func (self *eventQueue) Post(callback func()) {
-
 	if callback == nil {
 		return
 	}
-
 	self.Add(callback)
 }
 ```
