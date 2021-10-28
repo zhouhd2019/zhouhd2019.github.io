@@ -54,9 +54,7 @@ type EventQueue interface {
 	// 获取事件数量
 	Count() int
 }
-
 type CapturePanicNotifyFunc func(interface{}, EventQueue)
-
 type eventQueue struct {
 	*Pipe
 	endSignal sync.WaitGroup
@@ -162,7 +160,6 @@ func SessionQueuedCall(ses Session, callback func()) {
 	}).Queue()
 	QueuedCall(q, callback)
 }
-
 // 有队列时队列调用，无队列时直接调用
 func QueuedCall(queue EventQueue, callback func()) {
 	if queue == nil {
@@ -171,7 +168,6 @@ func QueuedCall(queue EventQueue, callback func()) {
 		queue.Post(callback)
 	}
 }
-
 // 派发事件处理回调到队列中
 func (self *eventQueue) Post(callback func()) {
 	if callback == nil {
@@ -225,7 +221,6 @@ func (self *Pipe) Add(msg interface{}) {
 	self.listGuard.Lock()
 	self.list = append(self.list, msg)
 	self.listGuard.Unlock()
-
 	self.listCond.Signal()
 }
 ```
