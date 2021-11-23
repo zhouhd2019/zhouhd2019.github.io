@@ -161,6 +161,7 @@ static void walkContour(int x, int y, int i,
 ```
 
 - 上面获得的轮廓非常粗糙，接下来需要通过simplifyContour简化。
+
 ```c++
 static void simplifyContour(rcIntArray& points, rcIntArray& simplified,
 							const float maxError, const int maxEdgeLen, const int buildFlags)
@@ -267,7 +268,9 @@ static void simplifyContour(rcIntArray& points, rcIntArray& simplified,
 	
 }
 ```
+
 - 上述步骤是循环内最重要的找出轮廓/简化轮廓，下面是简单的移除重复点
+
 ```c++
 static void removeDegenerateSegments(rcIntArray& simplified) {
 	// Remove adjacent vertices which are equal on xz-plane,
@@ -291,6 +294,7 @@ static void removeDegenerateSegments(rcIntArray& simplified) {
 ```
 
 - 最后是将这次循环处理好的轮廓保存下来，主要是复制一下简化前后轮廓顶点
+
 ```c++
 				// Store region->contour remap info.
 				// Create contour.
