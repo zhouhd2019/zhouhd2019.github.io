@@ -87,6 +87,7 @@ bool rcBuildContours(rcContext* ctx, rcCompactHeightfield& chf,
 				removeDegenerateSegments(simplified);
 ```
 - 先看一下walkContour。获得轮廓的过程大概是从轮廓某个点出发，如果遇到边缘就记录，并顺时针旋转90度，继续往前；如果没有遇到边缘，就逆时针旋转90度；回到起点就结束，保存下来的点都是轮廓点。
+
 ```c++
 static void walkContour(int x, int y, int i,
 						rcCompactHeightfield& chf,
@@ -157,7 +158,6 @@ static void walkContour(int x, int y, int i,
 			break;
 	}
 }
-
 ```
 
 - 上面获得的轮廓非常粗糙，接下来需要通过simplifyContour简化。
@@ -349,5 +349,4 @@ static void removeDegenerateSegments(rcIntArray& simplified) {
 	}
 	return true;
 }
-
 ```
