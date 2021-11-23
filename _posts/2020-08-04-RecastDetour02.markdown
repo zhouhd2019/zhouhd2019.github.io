@@ -150,6 +150,7 @@ void rcFilterLedgeSpans(rcContext* ctx, const int walkableHeight, const int walk
 
 ### rcFilterWalkableLowHeightSpans
 - 对于每个span链表，检查span之间的高度，过小则判别为不可行走
+
 ```c++
 /// For this filter, the clearance above the span is the distance from the span's 
 /// maximum to the next higher span's minimum. (Same grid column.)
@@ -174,5 +175,4 @@ void rcFilterWalkableLowHeightSpans(rcContext* ctx, int walkableHeight, rcHeight
 		}
 	}
 }
-
 ```
