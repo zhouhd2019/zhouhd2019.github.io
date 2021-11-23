@@ -243,6 +243,7 @@ static int getPolyMergeValue(unsigned short* pa, unsigned short* pb,
 
 ### 其它
 - 到这里循环结束，还有一些工作需要完成。每个轮廓都划分为多边形，不过存在很多重复的顶点，需要清理。需要计算多边形的邻接情况。
+
 ```c++
 	// Remove edge vertices.
 	for (int i = 0; i < mesh.nverts; ++i) {
@@ -295,5 +296,4 @@ static int getPolyMergeValue(unsigned short* pa, unsigned short* pb,
 	memset(mesh.flags, 0, sizeof(unsigned short) * mesh.npolys);
 	return true;
 }
-
 ```
